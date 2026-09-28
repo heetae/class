@@ -263,7 +263,40 @@ h1{
   font-weight:500;
 }
 .cine-btn:hover{background:color-mix(in srgb,var(--hot) 12%,transparent) !important;}
-.cine-note{
+/* Fullscreen: the panel keeps its own chrome so the transport controls stay
+   reachable. Two paths — the real Fullscreen API, and a fixed-position fallback
+   for when the page is framed without fullscreen permission. */
+.scope:fullscreen{
+  display:flex; flex-direction:column;
+  border-radius:0; background:var(--panel);
+}
+.scope:-webkit-full-screen{
+  display:flex; flex-direction:column;
+  border-radius:0; background:var(--panel);
+}
+.scope.fs-on{
+  position:fixed; inset:0; z-index:9999;
+  display:flex; flex-direction:column;
+  border-radius:0; background:var(--panel);
+}
+.scope:fullscreen .panel-head,.scope:fullscreen .transport{flex:none;}
+.scope:-webkit-full-screen .panel-head,.scope:-webkit-full-screen .transport{flex:none;}
+.scope.fs-on .panel-head,.scope.fs-on .transport{flex:none;}
+.scope:fullscreen .canvas-box{aspect-ratio:auto; flex:1 1 auto; min-height:0;}
+.scope:-webkit-full-screen .canvas-box{aspect-ratio:auto; flex:1 1 auto; min-height:0;}
+.scope.fs-on .canvas-box{aspect-ratio:auto; flex:1 1 auto; min-height:0;}
+
+.transport{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  padding:11px 14px;
+  border-top:1px solid var(--line-soft);
+  background:var(--panel);
+}
+.transport button{padding:7px 11px;}
+/* the key hint is help text, not a control: give it its own line so the
+   transport buttons always share one row */
+.transport .tkeys{
+  flex-basis:100%; margin-top:1px;
   font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.04em;
   color:var(--ink-3);
 }
@@ -519,6 +552,14 @@ footer{
           <div class="prog"><i id="cineProg"></i></div>
         </div>
       </div>
+      <div class="transport">
+        <button id="btnCine" class="cine-btn">▶ 시네마 데모</button>
+        <button id="btnPlay" class="primary">일시정지</button>
+        <button id="btnReset">다시 실행</button>
+        <button id="btnRot" aria-pressed="true">자동 회전</button>
+        <button id="btnFs" aria-pressed="false">⛶ 전체화면</button>
+        <span class="tkeys">데모 약 60초 · Space 일시정지 · Esc 종료</span>
+      </div>
     </div>
 
     <div class="rail">
@@ -608,12 +649,6 @@ footer{
       </div>
     </div>
     <div class="buttons">
-      <button id="btnCine" class="cine-btn">▶ 시네마 데모</button>
-      <span class="cine-note">약 60초 자동 연출 · Esc로 종료</span>
-      <button id="btnPlay" class="primary">일시정지</button>
-      <button id="btnReset">다시 실행</button>
-      <button id="btnRot" aria-pressed="true">자동 회전</button>
-      <span class="spacer"></span>
       <span class="btn-label">프리셋</span>
       <button data-preset="chaos">혼돈 ρ=28</button>
       <button data-preset="fixed">수렴 ρ=14</button>
@@ -828,11 +863,11 @@ function drawScope(){
   var colA = lit?CINE.a:C["a"], colB = lit?CINE.b:C["b"],
       colHot = lit?CINE.hot:C["hot"], colGrid = lit?CINE.grid:C["grid"];
 
-  var tight = cine.on && /lock|chase/.test(ACTS[cine.act].frame);
+  var tight = cine.on && !!ACTS[cine.act].pair;
   var cx=w/2, cy=h/2-(cine.on?h*0.07:0), k=Math.min(w,h)/(2.35*Math.max(cam.R,0.02));
 
   // the ground plane only reads at a wide framing; hide it once we push in
-  var gAlpha=Math.min(1,Math.max(0,(cam.R/viewR-0.45)/0.35));
+  var gAlpha=Math.min(1,Math.max(0,(cam.R/viewR-0.28)/0.30));
   if(gAlpha>0.01){
     g.globalAlpha=gAlpha;
     g.strokeStyle=colGrid; g.lineWidth=1;
@@ -1122,7 +1157,7 @@ function frame(now){
   lastWall=now||0;
 
   if(running){
-    theta += cine.on ? ACTS[cine.act].rot : (autoRot?0.0016:0);
+    theta += cine.on ? cine.rot : (autoRot?0.0016:0);
     step();
     if(cine.on) cineTick(dtWall);
   }
@@ -1132,40 +1167,51 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
-function updateCamera(){
-  var tgt, eT, eR, eE;
-  if(cine.on){
-    var act=ACTS[cine.act];
-    tgt=frameTarget(act.frame, cine.dMax);
-    eT = act.frame==="wide"?0.05 : act.frame==="push"?0.10 : 0.72;
-    eR = act.frame==="lock"?0.035 : 0.06;
-    eE = 0.022;
-    elev += (act.elev-elev)*eE;
-  } else {
-    tgt={tx:0,ty:0,tz:zCenter,R:viewR}; eT=0.08; eR=0.08;
-  }
-  cam.tx += (tgt.tx-cam.tx)*eT;
-  cam.ty += (tgt.ty-cam.ty)*eT;
-  cam.tz += (tgt.tz-cam.tz)*eT;
-  var target=Math.max(0.05,tgt.R);
-  cam.R = Math.max(0.02, cam.R*Math.exp(Math.log(target/Math.max(cam.R,1e-6))*eR));
-
-  cine.dark += ((cine.on?1:0)-cine.dark)*0.12;
-  cine.link += ((cine.on&&/lock|chase/.test(ACTS[cine.act].frame)?1:0)-cine.link)*0.08;
-  cine.flash *= 0.90;
-  cine.slow += (1-cine.slow)*0.013;
+/* Every shot parameter — how hard the camera tracks the pair, how tight the
+   frame is, the tilt, the orbit rate — is itself eased toward the current act's
+   value. Nothing snaps at an act boundary, so ACT II's push simply keeps going
+   and becomes ACT III's dive instead of cutting. */
+function actR(act){
+  if(act.pair) return Math.min(viewR, Math.max(act.Rmin, cine.dMax*act.Rd));
+  var pr = act.card ? Math.min(1, cine.wall/act.wall)
+                    : Math.min(1, (t-cine.tAct)/Math.max(act.minT||1, 0.5));
+  return viewR*(act.Rk0+(act.Rk1-act.Rk0)*pr);
 }
 
-function frameTarget(mode,d){
-  if(mode==="wide") return {tx:0,ty:0,tz:zCenter,R:viewR};
-  var mx=(A[0]+B[0])/2, my=(A[1]+B[1])/2, mz=(A[2]+B[2])/2;
-  if(mode==="push"){
-    var wgt=0.62;
-    return {tx:mx*wgt, ty:my*wgt, tz:zCenter+(mz-zCenter)*wgt, R:Math.max(viewR*0.26,5.5)};
+function updateCamera(){
+  if(cine.on){
+    var act=ACTS[cine.act];
+    cine.smA    += (act.smooth-cine.smA   )*0.05;
+    cine.follow += (act.follow-cine.follow)*0.07;
+    cine.rot    += (act.rot   -cine.rot   )*0.03;
+    elev        += (act.elev  -elev       )*0.022;
+
+    // low-passed midpoint of the two heads; the follow weight then slides the
+    // aim point between the attractor's centre and that midpoint
+    var mx=(A[0]+B[0])/2, my=(A[1]+B[1])/2, mz=(A[2]+B[2])/2;
+    cine.sm[0]+=(mx-cine.sm[0])*cine.smA;
+    cine.sm[1]+=(my-cine.sm[1])*cine.smA;
+    cine.sm[2]+=(mz-cine.sm[2])*cine.smA;
+
+    var f=cine.follow;
+    cam.tx = cine.sm[0]*f;
+    cam.ty = cine.sm[1]*f;
+    cam.tz = zCenter+(cine.sm[2]-zCenter)*f;
+    // ease toward the act's framing, but cap the rate: a large target change
+    // then dives at a steady speed and settles, instead of whip-zooming
+    var zs=Math.log(Math.max(0.05,actR(act))/Math.max(cam.R,1e-6))*0.040;
+    cam.R = Math.max(0.02, cam.R*Math.exp(Math.max(-0.035,Math.min(0.035,zs))));
+  } else {
+    cam.tx += (0-cam.tx)*0.08;
+    cam.ty += (0-cam.ty)*0.08;
+    cam.tz += (zCenter-cam.tz)*0.08;
+    cam.R = Math.max(0.02, cam.R*Math.exp(Math.log(viewR/Math.max(cam.R,1e-6))*0.08));
   }
-  // lock / chase: hold the pair centred, let them fill the frame, then yield
-  var R=Math.max(0.35, d*(mode==="lock"?1.45:1.7));
-  return {tx:mx, ty:my, tz:mz, R:Math.min(R, viewR)};
+
+  cine.dark += ((cine.on?1:0)-cine.dark)*0.12;
+  cine.link += ((cine.on&&ACTS[cine.act].pair?1:0)-cine.link)*0.08;
+  cine.flash *= 0.90;
+  cine.slow += (1-cine.slow)*0.013;
 }
 
 /* ============ controls ============ */
@@ -1235,7 +1281,14 @@ scopeBox.addEventListener("pointermove",function(e){
 });
 
 document.addEventListener("keydown",function(e){
-  if(e.code==="Escape" && cine.on){ e.preventDefault(); endCinema(); return; }
+  if(e.code==="Escape"){
+    // Esc closes the largest thing that is open: our own overlay, then the
+    // browser's fullscreen (which swallows the key itself), then the demo
+    if(fsFallback){ e.preventDefault(); exitFs(); return; }
+    if(document.fullscreenElement||document.webkitFullscreenElement) return;
+    if(cine.on){ e.preventDefault(); endCinema(); }
+    return;
+  }
   if(e.code==="Space" && !/INPUT|BUTTON|TEXTAREA/.test(e.target.tagName)){
     e.preventDefault(); btnPlay.click();
   }
@@ -1247,32 +1300,46 @@ document.addEventListener("keydown",function(e){
    separation reaches its threshold (with a simulated-time backstop), so the
    choreography lands on the real divergence no matter how the orbit falls. */
 var ACTS=[
- {card:true, wall:3.6, speed:1.2, frame:"wide", rot:0.0012, elev:0.30, trail:1200},
+ {card:true, wall:3.6, speed:1.2, trail:1200,
+  follow:0, smooth:0.30, rot:0.0012, elev:0.30, Rk0:1.00, Rk1:1.00},
+
  {label:"ACT I", cap:"구별할 수 없는 두 세계",
   sub:"두 초기 조건의 차이는 0.00000001. 소수점 여덟 자리까지 같은 두 세계가 나란히 출발합니다.",
-  dEnd:1e-4, minT:6, maxT:26, speed:5.0, frame:"wide", rot:0.0016, elev:0.30, trail:3000},
+  dEnd:1e-4, minT:6, maxT:26, speed:5.0, trail:3000,
+  follow:0, smooth:0.30, rot:0.0016, elev:0.30, Rk0:1.00, Rk1:0.95},
+
  {label:"ACT II", cap:"보이지 않는 균열",
-  sub:"오차는 벌써 만 배로 자랐습니다. 그런데도 화면에는 여전히 한 줄뿐입니다.",
-  dEnd:6e-3, minT:3, maxT:14, speed:2.6, frame:"push", rot:0.0022, elev:0.34, trail:2000},
- {label:"ACT III", cap:"카메라가 파고듭니다",
-  sub:"두 궤적의 머리로 줌인. 한 점인 줄 알았던 것이 실은 두 점이었습니다.",
-  dEnd:0.12, minT:3.5, maxT:12, speed:1.9, frame:"lock", rot:0.0032, elev:0.16, trail:620},
- {label:"ACT IV", cap:"분기점",
-  sub:"슬로우 모션. 하나였던 점이 눈앞에서 둘로 갈라집니다.",
-  dEnd:2.5, minT:4, maxT:16, speed:0.75, frame:"lock", rot:0.0034, elev:0.10, trail:900},
- {label:"ACT V", cap:"폭주",
-  sub:"오차가 화면을 밀어냅니다. 예측 지평선을 넘었습니다.",
-  dEnd:16, minT:2.5, maxT:14, speed:1.7, frame:"chase", rot:0.0024, elev:0.22, trail:1600},
+  sub:"오차는 처음의 만 배가 넘었습니다. 하지만 눈으로는 구분되지 않습니다.",
+  dEnd:6e-3, minT:3, maxT:14, speed:2.2, trail:2200,
+  follow:0, smooth:0.30, rot:0.0012, elev:0.26, Rk0:0.95, Rk1:0.78},
+
+ {label:"ACT III", cap:"미시의 세계",
+  sub:"한 점으로 보이지만 실은 미세하게 다른 두 점입니다.",
+  dEnd:0.12, minT:3.2, maxT:12, speed:1.25, trail:520,
+  follow:1, smooth:0.75, rot:0.0016, elev:0.16, pair:true, Rd:2.60, Rmin:1.60},
+
+ {label:"ACT IV", cap:"분열의 시작",
+  sub:"이제 더 이상 하나로 보기 어려울 만큼 오차가 커집니다.",
+  dEnd:2.5, minT:4, maxT:16, speed:0.75, trail:900,
+  follow:1, smooth:0.85, rot:0.0034, elev:0.10, pair:true, Rd:1.45, Rmin:0.55},
+
+ {label:"ACT V", cap:"극명한 분열",
+  sub:"오차가 급격히 늘어나고, 둘은 다른 길을 찾아갑니다.",
+  dEnd:16, minT:2.5, maxT:14, speed:1.7, trail:1600,
+  follow:1, smooth:0.75, rot:0.0024, elev:0.22, pair:true, Rd:1.75, Rmin:0.55},
+
  {label:"ACT VI", cap:"다른 미래",
   sub:"같은 방정식 · 같은 계산 · 다른 결과. 두 궤적은 이제 서로 아무 관계가 없습니다.",
-  dEnd:null, minT:0, maxT:17, speed:6.5, frame:"wide", rot:0.0016, elev:0.36, trail:3400}
+  dEnd:null, minT:0, maxT:17, speed:6.5, trail:3400,
+  follow:0, smooth:0.20, rot:0.0016, elev:0.34, Rk0:1.00, Rk1:1.00}
 ];
 
 /* d(t) grows exponentially only on average — locally it can spike an order of
    magnitude or fold back. Beats and framing run off a running peak so a burst
    cannot teleport past an act and a contraction cannot rewind the zoom. */
 var cine={on:false, act:0, tAct:0, wall:0, dStart:1e-8, dMax:1e-12, speed:1.2,
-          slow:1, dark:0, link:0, flash:0, hit:false, saved:null, capTimer:0};
+          slow:1, dark:0, link:0, flash:0, hit:false, saved:null, capTimer:0,
+          sm:[0,0,0], smA:0.3, follow:0, rot:0.0012};
 
 var elCine=document.getElementById("cine");
 var elCard=document.getElementById("cineCard");
@@ -1370,6 +1437,7 @@ function syncSliders(){
 function lockControls(on){
   document.querySelector(".ctrl-grid").classList.toggle("locked",on);
   document.getElementById("btnReset").disabled=on;
+  document.getElementById("btnRot").disabled=on;
   Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"),function(b){
     b.disabled=on;
   });
@@ -1383,13 +1451,16 @@ function startCinema(){
   running=true; btnPlay.textContent="일시정지";
   theta=0.55; elev=0.30;
   cine.on=true; cine.hit=false; cine.slow=1; cine.flash=0; cine.dMax=P.d0;
+  cine.sm=[(A[0]+B[0])/2,(A[1]+B[1])/2,(A[2]+B[2])/2];
+  cine.smA=ACTS[0].smooth; cine.follow=ACTS[0].follow; cine.rot=ACTS[0].rot;
   scopeBox.classList.add("cine-on");
   elCine.setAttribute("aria-hidden","false");
   btnCine.textContent="■ 데모 종료";
   lockControls(true);
   setAct(0);
-  if(scopeBox.scrollIntoView){
-    scopeBox.scrollIntoView({behavior:reduceMotion?"auto":"smooth", block:"center"});
+  var panel=document.querySelector(".scope");
+  if(panel && panel.scrollIntoView){
+    panel.scrollIntoView({behavior:reduceMotion?"auto":"smooth", block:"center"});
   }
 }
 
@@ -1415,6 +1486,49 @@ function endCinema(){
 btnCine.addEventListener("click",function(){
   if(cine.on) endCinema(); else startCinema();
 });
+
+/* ============ fullscreen ============ */
+var btnFs=document.getElementById("btnFs");
+var scopePanel=document.querySelector(".scope");
+var fsFallback=false;
+
+function fsNative(){
+  var el=document.fullscreenElement||document.webkitFullscreenElement;
+  return el===scopePanel;
+}
+function fsActive(){ return fsNative()||fsFallback; }
+
+function syncFs(){
+  var on=fsActive();
+  btnFs.textContent = on ? "⛶ 축소" : "⛶ 전체화면";
+  btnFs.setAttribute("aria-pressed", on?"true":"false");
+  scopePanel.classList.toggle("fs-on", fsFallback);
+  draw();
+}
+
+function enterFs(){
+  var el=scopePanel;
+  var req=el.requestFullscreen||el.webkitRequestFullscreen;
+  if(!req){ fsFallback=true; syncFs(); return; }
+  var p;
+  try{ p=req.call(el); }catch(err){ p=null; }
+  if(p&&typeof p.then==="function"){
+    p.then(syncFs, function(){ fsFallback=true; syncFs(); });
+  } else {
+    // older synchronous API, or a frame that silently refuses
+    setTimeout(function(){ if(!fsNative()){ fsFallback=true; syncFs(); } }, 150);
+  }
+}
+
+function exitFs(){
+  if(fsFallback){ fsFallback=false; syncFs(); return; }
+  if(document.exitFullscreen) document.exitFullscreen();
+  else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+}
+
+btnFs.addEventListener("click",function(){ if(fsActive()) exitFs(); else enterFs(); });
+document.addEventListener("fullscreenchange",syncFs);
+document.addEventListener("webkitfullscreenchange",syncFs);
 
 window.addEventListener("resize",function(){ draw(); });
 
