@@ -1,0 +1,495 @@
+<title>지인 지명과 유효 거리</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --page:#f1f3f6; --surface:#ffffff; --surface-2:#f6f7f9;
+  --ink:#141c26; --ink-2:#4b5563; --muted:#7c8694;
+  --grid:#e4e8ed; --axis:#c3cad3; --border:rgba(20,28,38,.11);
+  --s-random:#2a78d6; --s-acq:#eb6834; --s-hub:#1baf7a; --s-inf:#d03b3b;
+  --seq-1:#cde2fb; --seq-4:#3987e5; --seq-7:#0d366b;
+  --node:#b9c0c9; --edge:rgba(20,28,38,.07);
+  --accent:#2a78d6;
+  --font-display:"Noto Serif KR","Apple SD Gothic Neo",serif;
+  --font-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#0e1216; --surface:#161b21; --surface-2:#1c222a;
+    --ink:#f2f4f7; --ink-2:#b8c0ca; --muted:#8b949f;
+    --grid:#262d36; --axis:#3b444f; --border:rgba(255,255,255,.10);
+    --s-random:#3987e5; --s-acq:#e2642f; --s-hub:#22b07c; --s-inf:#e66767;
+    --seq-1:#1c3556; --seq-4:#3987e5; --seq-7:#b7d3f6;
+    --node:#4a535e; --edge:rgba(255,255,255,.06);
+    --accent:#3987e5;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0e1216; --surface:#161b21; --surface-2:#1c222a;
+  --ink:#f2f4f7; --ink-2:#b8c0ca; --muted:#8b949f;
+  --grid:#262d36; --axis:#3b444f; --border:rgba(255,255,255,.10);
+  --s-random:#3987e5; --s-acq:#e2642f; --s-hub:#22b07c; --s-inf:#e66767;
+  --seq-1:#1c3556; --seq-4:#3987e5; --seq-7:#b7d3f6;
+  --node:#4a535e; --edge:rgba(255,255,255,.06);
+  --accent:#3987e5;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:40px 24px 80px}
+header.masthead{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;padding-bottom:20px;border-bottom:1px solid var(--axis);margin-bottom:44px}
+.eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--font-display);font-weight:700;font-size:clamp(28px,4vw,40px);line-height:1.2;margin:8px 0 0;text-wrap:balance}
+.masthead p{margin:0;max-width:34em;color:var(--ink-2)}
+h2{font-family:var(--font-display);font-weight:700;font-size:clamp(22px,3vw,28px);line-height:1.3;margin:0 0 6px;text-wrap:balance}
+h2 .num{font-family:var(--font-mono);font-weight:500;font-size:.6em;color:var(--muted);margin-right:.6em;vertical-align:.25em;letter-spacing:.05em}
+.lede{max-width:62ch;color:var(--ink-2);margin:0 0 20px}
+.lede b{color:var(--ink);font-weight:600}
+section.chapter{margin-bottom:72px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 22px 22px}
+.controls{display:flex;flex-wrap:wrap;gap:14px 26px;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--grid);margin-bottom:18px}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl label,.ctl .lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-family:var(--font-mono)}
+.seg{display:inline-flex;border:1px solid var(--axis);border-radius:6px;overflow:hidden;background:var(--surface-2)}
+.seg button{appearance:none;border:0;background:transparent;color:var(--ink-2);font:inherit;font-size:14px;padding:6px 12px;cursor:pointer;display:flex;align-items:center;gap:7px;border-right:1px solid var(--axis)}
+.seg button:last-child{border-right:0}
+.seg button .sw{width:10px;height:10px;border-radius:2px;background:var(--sw)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--ink)}
+.seg button:focus-visible,button.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.slider{display:flex;align-items:center;gap:10px}
+.slider input[type=range]{width:200px;accent-color:var(--accent)}
+.slider .val{font-family:var(--font-mono);font-size:14px;min-width:4ch;font-variant-numeric:tabular-nums}
+.btn{appearance:none;font:inherit;font-size:14px;padding:7px 13px;border-radius:6px;border:1px solid var(--axis);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+select{font:inherit;font-size:14px;padding:6px 10px;border-radius:6px;border:1px solid var(--axis);background:var(--surface);color:var(--ink);min-width:170px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-bottom:20px;border:1px solid var(--grid);border-radius:8px;overflow:hidden}
+.stat{padding:12px 16px;border-right:1px solid var(--grid);background:var(--surface-2);min-width:0}
+.stat:last-child{border-right:0}
+.stat .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-family:var(--font-mono);white-space:nowrap}
+.stat .v{font-family:var(--font-mono);font-size:26px;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v small{font-size:14px;color:var(--ink-2);margin-left:2px}
+.stat .sub{font-size:12px;color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat.hl .v{color:var(--s-inf)}
+.figs{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.fig{min-width:0}
+.fig h3{font-size:14px;font-weight:600;margin:0 0 2px}
+.fig .cap{font-size:13px;color:var(--ink-2);margin:0 0 10px;line-height:1.5}
+.fig svg,.fig canvas{width:100%;height:auto;display:block}
+.fig canvas{border-radius:6px;background:var(--surface-2)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin:0 0 8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:3px;border-radius:2px;background:var(--c);display:inline-block}
+.legend i.dot{width:9px;height:9px;border-radius:50%}
+.note{font-size:13px;color:var(--ink-2);border-left:3px solid var(--accent);padding:6px 14px;margin:20px 0 0;background:var(--surface-2);border-radius:0 6px 6px 0}
+.note b{color:var(--ink)}
+svg text{font-family:var(--font-body);font-size:11px;fill:var(--muted)}
+svg text.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+svg text.lab{fill:var(--ink-2);font-weight:600}
+svg .grid{stroke:var(--grid);stroke-width:1}
+svg .axis{stroke:var(--axis);stroke-width:1}
+#tip{position:fixed;pointer-events:none;z-index:10;background:var(--ink);color:var(--surface);font-size:12px;line-height:1.45;padding:7px 10px;border-radius:6px;max-width:240px;opacity:0;transition:opacity .08s;font-family:var(--font-body)}
+#tip .t{font-weight:600}
+#tip .m{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.rank{font-size:13px;margin-top:14px}
+.rank table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.rank th{text-align:left;font-weight:500;color:var(--muted);font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-bottom:1px solid var(--grid)}
+.rank td{padding:4px 8px;border-bottom:1px solid var(--grid)}
+.rank td.m{font-family:var(--font-mono)}
+.rank tr.true td{color:var(--s-inf);font-weight:600}
+.rank tr.guess td:first-child::after{content:" ← 현재 가설";color:var(--muted);font-weight:400;font-size:12px}
+.hidden{display:none}
+footer{margin-top:40px;font-size:13px;color:var(--muted);border-top:1px solid var(--grid);padding-top:16px;max-width:70ch}
+@media (max-width:860px){
+  .figs{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat:nth-child(2){border-right:0}
+  .stat:nth-child(-n+2){border-bottom:1px solid var(--grid)}
+  header.masthead{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header class="masthead">
+  <div>
+    <div class="eyebrow">네트워크 과학 · 전염 확산 · 인터랙티브 데모</div>
+    <h1>망을 모르고도 허브를 잡는 법, 그리고 거리를 다시 정의하는 법</h1>
+  </div>
+  <p>슬라이더와 버튼을 직접 움직여 보세요. 모든 수치는 브라우저 안에서 지금 계산되고 있습니다 — 아래 네트워크는 척도 없는(scale-free) 망 1,000명, 항공망은 44개 도시의 가상 승객 흐름입니다.</p>
+</header>
+
+<!-- ============ CHAPTER 1 ============ -->
+<section class="chapter" id="ch1">
+  <h2><span class="num">01</span>지인 지명 면역 — 이미 갖고 있는 카드, 제대로 살리기</h2>
+  <p class="lede">망을 전혀 모르는 상태에서 <b>무작위 접종</b>은 인구 대부분을 덮어야 유행이 멈춥니다. 그런데 무작위로 뽑은 사람에게 <b>“당신 지인 한 명에게 주세요”</b>라고만 해도 훨씬 낮은 접종률로 같은 효과가 납니다. 허브 명단이 없어도 허브가 걸려 나오기 때문입니다.</p>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="ctl"><span class="lbl">접종 전략</span>
+        <div class="seg" id="strat">
+          <button data-s="random" aria-pressed="true" style="--sw:var(--s-random)"><i class="sw"></i>무작위</button>
+          <button data-s="acq" style="--sw:var(--s-acq)"><i class="sw"></i>지인 지명</button>
+          <button data-s="hub" style="--sw:var(--s-hub)"><i class="sw"></i>전체 조사 후 허브 타격</button>
+        </div>
+      </div>
+      <div class="ctl"><label for="cov">접종률</label>
+        <div class="slider"><input type="range" id="cov" min="0" max="70" step="1" value="20"><span class="val" id="covv">20%</span></div>
+      </div>
+      <div class="ctl"><label for="tr">전파 확률 (접촉당)</label>
+        <div class="slider"><input type="range" id="tr" min="20" max="90" step="5" value="50"><span class="val" id="trv">0.50</span></div>
+      </div>
+      <div class="ctl"><span class="lbl">&nbsp;</span><button class="btn" id="newnet">새 네트워크 생성</button></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat hl"><div class="k">유행 규모</div><div class="v" id="st-size">—</div><div class="sub">감염 가능한 최대 연결 덩어리 / 전체 인구</div></div>
+      <div class="stat"><div class="k">접종 인원</div><div class="v" id="st-n">—<small>명</small></div><div class="sub" id="st-nsub">1,000명 중</div></div>
+      <div class="stat"><div class="k">무작위로 뽑힌 사람 평균 연결수</div><div class="v" id="st-kr">—</div><div class="sub">⟨k⟩ — 전체 평균과 같음</div></div>
+      <div class="stat"><div class="k">지명받은 사람 평균 연결수</div><div class="v" id="st-ka">—</div><div class="sub">⟨k²⟩/⟨k⟩ — 친구는 나보다 친구가 많다</div></div>
+    </div>
+
+    <div class="figs">
+      <div class="fig">
+        <h3>네트워크 (허브가 중심, 연결이 적을수록 바깥)</h3>
+        <p class="cap">색칠된 점 = 접종된 사람, <span style="color:var(--s-inf);font-weight:600">붉은 점</span> = 한 번의 유행에서 감염될 수 있는 가장 큰 덩어리.</p>
+        <canvas id="net" width="560" height="440"></canvas>
+      </div>
+      <div class="fig">
+        <h3>접종률에 따른 유행 규모 — 세 전략 비교</h3>
+        <p class="cap">세 번째 전략은 “정보가 완벽할 때”의 상한선입니다. 두 번째가 거기에 거의 붙는 것을 보세요.</p>
+        <div class="legend">
+          <span><i style="--c:var(--s-random)"></i>무작위</span>
+          <span><i style="--c:var(--s-acq)"></i>지인 지명</span>
+          <span><i style="--c:var(--s-hub)"></i>허브 타격 (완전 정보)</span>
+        </div>
+        <svg id="curve" viewBox="0 0 560 300" role="img" aria-label="접종률 대 유행 규모 곡선"></svg>
+      </div>
+      <div class="fig" style="grid-column:1/-1">
+        <h3>작동 이유 — 무작위로 뽑힌 사람 vs 그 사람이 지명한 사람의 연결수 분포</h3>
+        <p class="cap">3,000번 뽑기. 지명받은 쪽의 분포가 오른쪽으로 밀려 있습니다. 연결이 많은 사람은 그만큼 많은 사람의 “지인”이기 때문입니다.</p>
+        <div class="figs" style="gap:16px">
+          <svg id="histR" viewBox="0 0 560 170" role="img" aria-label="무작위로 뽑힌 사람의 연결수 히스토그램"></svg>
+          <svg id="histA" viewBox="0 0 560 170" role="img" aria-label="지명받은 사람의 연결수 히스토그램"></svg>
+        </div>
+      </div>
+    </div>
+    <p class="note"><b>수업에서 짚을 점.</b> 무작위 접종은 평균 연결수 ⟨k⟩의 사람을 빼지만, 지명 접종은 ⟨k²⟩/⟨k⟩의 사람을 뺍니다. 척도 없는 망에서는 이 둘의 차이가 커서, 지명받은 사람만 골라내도 “허브 명단을 아는 것”에 가까운 효과를 냅니다.</p>
+  </div>
+</section>
+
+<!-- ============ CHAPTER 2 ============ -->
+<section class="chapter" id="ch2">
+  <h2><span class="num">02</span>전염병이 언제 도착할지 — 지도로는 노이즈, 항공망으로는 직선</h2>
+  <p class="lede">발원지에서 각 도시까지의 <b>지리적 거리</b>와 실제 도착 시점을 찍으면 흩어진 점 구름입니다. x축을 항공망의 <b>유효 거리</b> — 킬로미터가 아니라 승객 흐름 확률로 재정의한 거리 — 로 바꾸는 순간 점들이 직선 위로 내려앉습니다. 발원지를 모를 때는, 직선이 되는 도시가 곧 발원지입니다.</p>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="ctl"><label for="origin">가설 발원지 (지도에서 클릭해도 됩니다)</label><select id="origin"></select></div>
+      <div class="ctl"><span class="lbl">x축</span>
+        <div class="seg" id="xaxis">
+          <button data-x="geo" aria-pressed="true">지리적 거리 (km)</button>
+          <button data-x="eff">유효 거리 D<sub>eff</sub></button>
+        </div>
+      </div>
+      <div class="ctl"><span class="lbl">역추적 문제</span>
+        <div style="display:flex;gap:8px"><button class="btn primary" id="newout">새 유행 (발원지 숨김)</button><button class="btn" id="reveal">정답 공개</button></div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">직선 맞음 정도 R²</div><div class="v" id="st-r2">—</div><div class="sub" id="st-r2sub">현재 x축 기준</div></div>
+      <div class="stat"><div class="k">가설 발원지</div><div class="v" id="st-guess" style="font-family:var(--font-body);font-size:20px">—</div><div class="sub" id="st-guesssub">&nbsp;</div></div>
+      <div class="stat"><div class="k">진짜 발원지</div><div class="v" id="st-true" style="font-family:var(--font-body);font-size:20px">—</div><div class="sub" id="st-truesub">&nbsp;</div></div>
+      <div class="stat"><div class="k">마지막 도착</div><div class="v" id="st-last">—<small>일</small></div><div class="sub" id="st-lastsub">&nbsp;</div></div>
+    </div>
+
+    <div class="figs">
+      <div class="fig">
+        <h3>세계 항공망 (가상) — 도착 시점이 이를수록 진한 색</h3>
+        <p class="cap">선의 굵기 = 승객 흐름. 주황 고리 = 가설 발원지. 도시를 클릭하면 가설이 바뀝니다.</p>
+        <canvas id="map" width="560" height="330"></canvas>
+      </div>
+      <div class="fig">
+        <h3 id="sc-title">도착 시점 vs 지리적 거리</h3>
+        <p class="cap" id="sc-cap">발원지에서의 거리(km)로 찍으면 예측 불가능해 보입니다.</p>
+        <svg id="scatter" viewBox="0 0 560 330" role="img" aria-label="도착 시점 산점도"></svg>
+      </div>
+    </div>
+    <div class="rank hidden" id="rank">
+      <h3 style="font-size:14px;margin:0 0 6px">후보 도시별 R² 순위 (유효 거리 기준) — 직선에 가장 가까운 후보가 발원지</h3>
+      <table><thead><tr><th>도시</th><th>R²</th><th>기울기 (일 / D<sub>eff</sub>)</th></tr></thead><tbody id="rankbody"></tbody></table>
+    </div>
+    <p class="note"><b>유효 거리의 정의.</b> 도시 i에서 출발하는 승객 중 j로 가는 비율을 P<sub>ij</sub>라 할 때, 한 구간의 유효 거리는 d<sub>ij</sub> = 1 − ln P<sub>ij</sub>. 발원지에서 어떤 도시까지의 D<sub>eff</sub>는 이 구간 거리의 합이 가장 작은 경로의 길이입니다. 승객이 많이 오가는 두 도시는 지도상 멀어도 “가깝고”, 직항이 없는 이웃 도시는 “멀어집니다”. (Brockmann &amp; Helbing, <i>Science</i> 2013)</p>
+  </div>
+</section>
+
+<footer>도착 시점은 도시별 SIR 모형에 승객 흐름을 결합한 결정론적 메타개체군 모형으로 계산했습니다(β = 0.5/일, γ = 0.2/일, 누적 100명 도달 시점). 승객 흐름은 인구·허브 등급·거리로 만든 가상 자료이며 실제 항공 통계가 아닙니다. 1장의 유행 규모는 접종자를 제거한 망에서 각 연결을 전파 확률로 남긴 뒤(연결 스미기) 가장 큰 덩어리의 크기를 4회 평균한 값입니다.</footer>
+</div>
+<div id="tip"></div>
+
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const tip=$('#tip');
+function showTip(html,x,y){tip.innerHTML=html;tip.style.opacity=1;const w=tip.offsetWidth,h=tip.offsetHeight;let L=x+14,T=y+14;if(L+w>innerWidth-8)L=x-w-14;if(T+h>innerHeight-8)T=y-h-14;tip.style.left=L+'px';tip.style.top=T+'px';}
+function hideTip(){tip.style.opacity=0}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+const cssVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function tokens(){return{surface2:cssVar('--surface-2'),ink:cssVar('--ink'),ink2:cssVar('--ink-2'),muted:cssVar('--muted'),grid:cssVar('--grid'),axis:cssVar('--axis'),node:cssVar('--node'),edge:cssVar('--edge'),random:cssVar('--s-random'),acq:cssVar('--s-acq'),hub:cssVar('--s-hub'),inf:cssVar('--s-inf'),seq1:cssVar('--seq-1'),seq4:cssVar('--seq-4'),seq7:cssVar('--seq-7'),surface:cssVar('--surface')}}
+function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
+function mix(a,b,t){const A=hex2rgb(a),B=hex2rgb(b);return`rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`}
+function setupCanvas(c){const dpr=Math.min(2,devicePixelRatio||1);const w=c.width,h=c.height;if(!c._w){c._w=w;c._h=h;c.width=w*dpr;c.height=h*dpr;c.style.aspectRatio=w+'/'+h;}const ctx=c.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return ctx}
+const fmtInt=n=>n.toLocaleString('ko-KR');
+const svgNS='http://www.w3.org/2000/svg';
+
+/* =====================================================================
+   CHAPTER 1 — acquaintance immunization
+===================================================================== */
+const N=1000,M=2;
+const COVS=[];for(let c=0;c<=70;c+=5)COVS.push(c/100);
+let net,seed1=7,state1={strategy:'random',cov:.20,T:.50};
+
+function makeBA(rng){
+  const adj=Array.from({length:N},()=>[]),targets=[];
+  for(let i=0;i<=M;i++)for(let j=i+1;j<=M;j++){adj[i].push(j);adj[j].push(i);targets.push(i,j)}
+  for(let v=M+1;v<N;v++){const ch=new Set();while(ch.size<M)ch.add(targets[Math.floor(rng()*targets.length)]);for(const u of ch){adj[v].push(u);adj[u].push(v);targets.push(u,v)}}
+  const edges=[];for(let u=0;u<N;u++)for(const v of adj[u])if(u<v)edges.push([u,v]);
+  const deg=adj.map(a=>a.length);
+  // radial layout: hubs at the centre, each node near its first attachment target
+  const kmax=Math.max(...deg),pos=new Array(N),ang=new Float64Array(N);
+  const byDeg=[...Array(N).keys()].sort((a,b)=>deg[b]-deg[a]);
+  for(let v=0;v<N;v++){ang[v]=v<=M?rng()*Math.PI*2:ang[adj[v][0]]+(rng()-.5)*0.9;}
+  for(const v of byDeg){const r=Math.pow(1-Math.log(deg[v])/Math.log(kmax+1),0.75)*0.93+(rng()-.5)*0.07;pos[v]=[r*Math.cos(ang[v]),r*Math.sin(ang[v])]}
+  // samples for the histogram: random person i, and a random acquaintance j of i
+  const degR=[],degA=[];for(let s=0;s<3000;s++){const i=Math.floor(rng()*N);const j=adj[i][Math.floor(rng()*adj[i].length)];degR.push(deg[i]);degA.push(deg[j])}
+  const byDegOrder=byDeg;
+  return{adj,edges,deg,pos,degR,degA,byDegOrder,kmax};
+}
+function immunize(strategy,k,rng){
+  const set=new Uint8Array(N);if(k<=0)return set;
+  if(strategy==='random'){const o=[...Array(N).keys()];for(let i=N-1;i>0;i--){const j=Math.floor(rng()*(i+1));[o[i],o[j]]=[o[j],o[i]]}for(let i=0;i<k;i++)set[o[i]]=1}
+  else if(strategy==='acq'){let c=0,g=0;while(c<k&&g<N*60){g++;const i=Math.floor(rng()*N);const nb=net.adj[i];const j=nb[Math.floor(rng()*nb.length)];if(!set[j]){set[j]=1;c++}}}
+  else{for(let i=0;i<k;i++)set[net.byDegOrder[i]]=1}
+  return set;
+}
+function percolate(imm,T,rng){
+  const par=new Int32Array(N),sz=new Int32Array(N);for(let i=0;i<N;i++){par[i]=i;sz[i]=1}
+  const find=x=>{while(par[x]!==x){par[x]=par[par[x]];x=par[x]}return x};
+  for(const [u,v] of net.edges){if(imm[u]||imm[v])continue;if(rng()>=T)continue;let a=find(u),b=find(v);if(a===b)continue;if(sz[a]<sz[b])[a,b]=[b,a];par[b]=a;sz[a]+=sz[b]}
+  let best=-1,bs=0;for(let i=0;i<N;i++)if(!imm[i]&&par[i]===i&&sz[i]>bs){bs=sz[i];best=i}
+  const inGiant=new Uint8Array(N);for(let i=0;i<N;i++)if(!imm[i]&&find(i)===best)inGiant[i]=1;
+  return{frac:bs/N,inGiant};
+}
+let curves={};
+function computeCurves(){
+  curves={};
+  for(const s of['random','acq','hub']){
+    curves[s]=COVS.map((c,ci)=>{let acc=0;for(let t=0;t<4;t++){const rng=mulberry32(seed1*1000+ci*10+t+(s==='random'?0:s==='acq'?300:600));const imm=immunize(s,Math.round(c*N),rng);acc+=percolate(imm,state1.T,rng).frac}return acc/4});
+  }
+}
+function renderNet(){
+  const c=$('#net'),ctx=setupCanvas(c),W=c._w,H=c._h,tk=tokens();
+  ctx.clearRect(0,0,W,H);
+  const k=Math.round(state1.cov*N);
+  const rng=mulberry32(seed1*77+Math.round(state1.cov*100)*3+1);
+  const imm=immunize(state1.strategy,k,rng);
+  const res=percolate(imm,state1.T,mulberry32(seed1*11+5));
+  const cx=W/2,cy=H/2,R=Math.min(W,H)/2-14;
+  const P=v=>[cx+net.pos[v][0]*R,cy+net.pos[v][1]*R];
+  ctx.lineWidth=.6;ctx.strokeStyle=tk.edge;ctx.beginPath();
+  for(const [u,v] of net.edges){const a=P(u),b=P(v);ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1])}ctx.stroke();
+  const col={random:tk.random,acq:tk.acq,hub:tk.hub}[state1.strategy];
+  const rad=v=>1.4+Math.sqrt(net.deg[v])*0.55;
+  const draw=(v,fill,extra)=>{const p=P(v);ctx.beginPath();ctx.arc(p[0],p[1],rad(v)+(extra||0),0,Math.PI*2);ctx.fillStyle=fill;ctx.fill()};
+  for(let v=0;v<N;v++)if(!imm[v]&&!res.inGiant[v])draw(v,tk.node);
+  for(let v=0;v<N;v++)if(res.inGiant[v])draw(v,tk.inf);
+  for(let v=0;v<N;v++)if(imm[v]){draw(v,tk.surface2,1.2);draw(v,col)}
+  // stats
+  $('#st-size').textContent=(res.frac*100).toFixed(1)+'%';
+  $('#st-n').innerHTML=fmtInt(k)+'<small>명</small>';
+  return res;
+}
+function renderCurve(){
+  const svg=$('#curve');const W=560,H=300,L=44,Rr=16,Tt=14,B=40,pw=W-L-Rr,ph=H-Tt-B,tk=tokens();
+  const X=c=>L+c/0.7*pw,Y=f=>Tt+(1-f)*ph;
+  let s='';
+  for(let f=0;f<=1.001;f+=.25){s+=`<line class="grid" x1="${L}" x2="${L+pw}" y1="${Y(f)}" y2="${Y(f)}"/><text class="mono" x="${L-8}" y="${Y(f)+4}" text-anchor="end">${Math.round(f*100)}%</text>`}
+  for(let c=0;c<=.7;c+=.1){s+=`<text class="mono" x="${X(c)}" y="${H-B+18}" text-anchor="middle">${Math.round(c*100)}%</text>`}
+  s+=`<line class="axis" x1="${L}" x2="${L+pw}" y1="${Y(0)}" y2="${Y(0)}"/>`;
+  s+=`<text class="lab" x="${L+pw/2}" y="${H-6}" text-anchor="middle" style="font-weight:500">접종률</text>`;
+  s+=`<text class="lab" x="${L-8}" y="${Tt-2}" text-anchor="end" style="font-weight:500">유행 규모</text>`;
+  const colors={random:tk.random,acq:tk.acq,hub:tk.hub},names={random:'무작위',acq:'지인 지명',hub:'허브 타격'};
+  for(const k of['random','acq','hub']){const d=curves[k].map((f,i)=>(i?'L':'M')+X(COVS[i]).toFixed(1)+','+Y(f).toFixed(1)).join(' ');s+=`<path d="${d}" fill="none" stroke="${colors[k]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`}
+  // current coverage marker
+  const cx=X(state1.cov);s+=`<line x1="${cx}" x2="${cx}" y1="${Tt}" y2="${Y(0)}" stroke="${tk.axis}" stroke-dasharray="3 3"/>`;
+  const interp=k=>{const c=state1.cov/0.05,i=Math.floor(c),t=c-i;const a=curves[k][Math.min(i,COVS.length-1)],b=curves[k][Math.min(i+1,COVS.length-1)];return a+(b-a)*t};
+  for(const k of['random','acq','hub']){const y=Y(interp(k));const big=k===state1.strategy;s+=`<circle cx="${cx}" cy="${y}" r="${big?6:4}" fill="${colors[k]}" stroke="${tk.surface}" stroke-width="2"/>`;if(big)s+=`<text class="mono lab" x="${cx+10}" y="${y+4}" style="fill:${colors[k]}">${(interp(k)*100).toFixed(0)}%</text>`}
+  s+=`<rect id="curve-hit" x="${L}" y="${Tt}" width="${pw}" height="${ph}" fill="transparent"/>`;
+  svg.innerHTML=s;
+  const hit=svg.querySelector('#curve-hit');
+  hit.addEventListener('mousemove',e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;const c=Math.max(0,Math.min(.7,(px-L)/pw*.7));const i=Math.round(c/.05);showTip(`<div class="t">접종률 ${COVS[i]*100|0}%</div>`+['random','acq','hub'].map(k=>`<div><span style="color:${colors[k]}">●</span> ${names[k]} <span class="m">${(curves[k][i]*100).toFixed(1)}%</span></div>`).join(''),e.clientX,e.clientY)});
+  hit.addEventListener('mouseleave',hideTip);
+}
+function renderHist(id,data,color,title){
+  const svg=$(id);const W=560,H=170,L=40,Rr=14,Tt=24,B=32,pw=W-L-Rr,ph=H-Tt-B,tk=tokens();
+  const NB=20,bins=new Array(NB).fill(0);for(const d of data){const b=Math.min(NB-1,Math.floor((d-2)/2));bins[b]++}
+  const frac=bins.map(b=>b/data.length),ymax=Math.max(.5,Math.ceil(Math.max(...frac)*10)/10);
+  const mean=data.reduce((a,b)=>a+b,0)/data.length;
+  const X=i=>L+i/NB*pw,bw=pw/NB,Y=f=>Tt+(1-f/ymax)*ph;
+  let s=`<text class="lab" x="${L}" y="12">${title}</text>`;
+  for(let f=0;f<=ymax+1e-9;f+=ymax/2){s+=`<line class="grid" x1="${L}" x2="${L+pw}" y1="${Y(f)}" y2="${Y(f)}"/><text class="mono" x="${L-6}" y="${Y(f)+4}" text-anchor="end">${Math.round(f*100)}%</text>`}
+  bins.forEach((b,i)=>{const h=ph*frac[i]/ymax;if(h<=0)return;s+=`<rect class="bar" data-i="${i}" x="${X(i)+1}" y="${Y(frac[i])}" width="${bw-2}" height="${h}" rx="2" fill="${color}"/>`});
+  s+=`<line class="axis" x1="${L}" x2="${L+pw}" y1="${Y(0)}" y2="${Y(0)}"/>`;
+  for(let i=0;i<NB;i+=2){s+=`<text class="mono" x="${X(i)+bw/2}" y="${H-B+14}" text-anchor="middle">${i===NB-1?'40+':2+i*2}</text>`}
+  s+=`<text x="${L+pw}" y="${H-4}" text-anchor="end">연결수 k</text>`;
+  const mx=X((mean-2)/2);s+=`<line x1="${mx}" x2="${mx}" y1="${Tt-4}" y2="${Y(0)}" stroke="${tk.ink}" stroke-width="1.5" stroke-dasharray="4 3"/><text class="mono lab" x="${mx+6}" y="${Tt+8}" style="fill:${tk.ink}">평균 ${mean.toFixed(1)}</text>`;
+  svg.innerHTML=s;
+  svg.querySelectorAll('.bar').forEach(r=>{r.addEventListener('mousemove',e=>{const i=+r.dataset.i;showTip(`<div class="t">연결수 ${i===NB-1?'40 이상':2+i*2+'–'+(3+i*2)}</div><div class="m">${(frac[i]*100).toFixed(1)}% · ${fmtInt(bins[i])}명</div>`,e.clientX,e.clientY)});r.addEventListener('mouseleave',hideTip)});
+  return mean;
+}
+function renderAll1(){
+  renderNet();renderCurve();
+  const tk=tokens();
+  const mr=renderHist('#histR',net.degR,tk.random,'무작위로 뽑힌 사람');
+  const ma=renderHist('#histA',net.degA,tk.acq,'그 사람이 지명한 지인');
+  $('#st-kr').textContent=mr.toFixed(1);$('#st-ka').textContent=ma.toFixed(1);
+}
+function rebuildNet(){net=makeBA(mulberry32(seed1));computeCurves();renderAll1()}
+$('#strat').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('#strat').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));state1.strategy=b.dataset.s;renderAll1()});
+$('#cov').addEventListener('input',e=>{state1.cov=+e.target.value/100;$('#covv').textContent=e.target.value+'%';renderNet();renderCurve()});
+$('#tr').addEventListener('input',e=>{state1.T=+e.target.value/100;$('#trv').textContent=state1.T.toFixed(2);computeCurves();renderNet();renderCurve()});
+$('#newnet').addEventListener('click',()=>{seed1=Math.floor(Math.random()*1e6)+1;rebuildNet()});
+
+/* =====================================================================
+   CHAPTER 2 — effective distance
+===================================================================== */
+const CITIES=[
+ ['서울',37.55,126.98,25,.8],['도쿄',35.68,139.69,37,.9],['베이징',39.9,116.4,21,.8],['상하이',31.23,121.47,26,.85],['홍콩',22.3,114.17,7.5,.95],['타이베이',25.03,121.56,7,.5],['마닐라',14.6,120.98,14,.4],['방콕',13.75,100.5,10.5,.75],['싱가포르',1.35,103.82,6,.95],['쿠알라룸푸르',3.14,101.69,8,.55],['자카르타',-6.2,106.85,32,.5],['델리',28.61,77.21,32,.7],['뭄바이',19.08,72.88,21,.7],['두바이',25.2,55.27,3.5,1],['이스탄불',41.01,28.98,16,.8],['모스크바',55.75,37.62,12,.6],['카이로',30.04,31.24,21,.5],['나이로비',-1.29,36.82,5,.4],['라고스',6.52,3.38,15,.4],['요하네스버그',-26.2,28.05,6,.55],['런던',51.5,-.13,14,1],['파리',48.86,2.35,12,.9],['프랑크푸르트',50.11,8.68,2.7,.95],['암스테르담',52.37,4.9,2.5,.9],['마드리드',40.42,-3.7,6.7,.65],['로마',41.9,12.5,4.3,.5],['뉴욕',40.71,-74.01,20,.95],['시카고',41.88,-87.63,9.5,.8],['로스앤젤레스',34.05,-118.24,13,.85],['샌프란시스코',37.77,-122.42,4.7,.7],['토론토',43.65,-79.38,6.5,.65],['멕시코시티',19.43,-99.13,22,.6],['보고타',4.71,-74.07,11,.4],['리마',-12.05,-77.04,11,.35],['상파울루',-23.55,-46.63,22,.6],['부에노스아이레스',-34.6,-58.38,15,.4],['시드니',-33.87,151.21,5.3,.65],['멜버른',-37.81,144.96,5,.45],['오클랜드',-36.85,174.76,1.7,.3],['호놀룰루',21.31,-157.86,1,.3],['앵커리지',61.2,-149.9,.3,.2],['레이캬비크',64.15,-21.94,.2,.25],['울란바토르',47.92,106.9,1.6,.15],['퍼스',-31.95,115.86,2.1,.3]
+].map(c=>({name:c[0],lat:c[1],lon:c[2],pop:c[3]*1e6,hub:c[4]}));
+const NC=CITIES.length;
+function hav(a,b){const R=6371,r=Math.PI/180;const dl=(b.lat-a.lat)*r,dn=(b.lon-a.lon)*r;const h=Math.sin(dl/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+const GEO=CITIES.map(a=>CITIES.map(b=>hav(a,b)));
+// passenger flux: population × hub-ness × distance decay, hubs fly long-haul
+let F=[],OUT=[],DEFF=[],EDGES=[];
+function buildFlux(){
+  const rng=mulberry32(2013);F=Array.from({length:NC},()=>new Float64Array(NC));
+  for(let i=0;i<NC;i++)for(let j=i+1;j<NC;j++){const a=CITIES[i],b=CITIES[j],d=GEO[i][j];const hub=a.hub*b.hub;const L=1400+16000*Math.pow(hub,.6);const base=Math.sqrt(a.pop*b.pop)/1e6*(0.04+hub)*Math.exp(-d/L);const v=base*Math.exp(0.55*gauss(rng));F[i][j]=F[j][i]=v}
+  // scale so that a typical city sends ~0.5% of its population abroad per day
+  let acc=0;for(let i=0;i<NC;i++){let o=0;for(let j=0;j<NC;j++)o+=F[i][j];acc+=o/CITIES[i].pop}const scale=0.005/(acc/NC);
+  OUT=[];for(let i=0;i<NC;i++){let o=0;for(let j=0;j<NC;j++){F[i][j]*=scale;o+=F[i][j]}OUT.push(o)}
+  // effective distance by Dijkstra on d_ij = 1 − ln P_ij
+  DEFF=[];for(let s=0;s<NC;s++){const dist=new Float64Array(NC).fill(Infinity),done=new Uint8Array(NC);dist[s]=0;for(let it=0;it<NC;it++){let u=-1,b=Infinity;for(let i=0;i<NC;i++)if(!done[i]&&dist[i]<b){b=dist[i];u=i}if(u<0)break;done[u]=1;for(let v=0;v<NC;v++){if(v===u||F[u][v]<=0)continue;const w=1-Math.log(F[u][v]/OUT[u]);if(dist[u]+w<dist[v])dist[v]=dist[u]+w}}DEFF.push(dist)}
+  EDGES=[];for(let i=0;i<NC;i++)for(let j=i+1;j<NC;j++)EDGES.push([i,j,F[i][j]]);EDGES.sort((a,b)=>b[2]-a[2]);EDGES=EDGES.slice(0,150);
+}
+function simulate(src){
+  const beta=.5,gamma=.2,dt=.2,TMAX=400;
+  const Npop=CITIES.map(c=>c.pop),S=Npop.slice(),I=new Float64Array(NC),arr=new Array(NC).fill(null);
+  I[src]=10;S[src]-=10;
+  const dI=new Float64Array(NC),dS=new Float64Array(NC);
+  for(let t=0;t<=TMAX;t+=dt){
+    for(let i=0;i<NC;i++)if(arr[i]===null&&Npop[i]-S[i]>=100)arr[i]=t;
+    for(let i=0;i<NC;i++){const inf=beta*S[i]*I[i]/Npop[i];let mob=0;const ji=I[i]/Npop[i];for(let j=0;j<NC;j++){if(j===i)continue;mob+=F[j][i]*I[j]/Npop[j]-F[i][j]*ji}dS[i]=-inf;dI[i]=inf-gamma*I[i]+mob}
+    for(let i=0;i<NC;i++){S[i]+=dS[i]*dt;I[i]+=dI[i]*dt;if(I[i]<0)I[i]=0}
+  }
+  return arr;
+}
+function fit(xs,ys){const n=xs.length;let sx=0,sy=0;for(let i=0;i<n;i++){sx+=xs[i];sy+=ys[i]}const mx=sx/n,my=sy/n;let sxy=0,sxx=0,syy=0;for(let i=0;i<n;i++){sxy+=(xs[i]-mx)*(ys[i]-my);sxx+=(xs[i]-mx)**2;syy+=(ys[i]-my)**2}const b=sxy/sxx,a=my-b*mx;const r2=sxx>0&&syy>0?(sxy*sxy)/(sxx*syy):0;return{a,b,r2}}
+
+let state2={guess:4,trueOrigin:4,revealed:true,xmode:'geo',arr:null};
+function pointsFor(guess,mode){const xs=[],ys=[],ids=[];for(let i=0;i<NC;i++){if(state2.arr[i]===null)continue;xs.push(mode==='geo'?GEO[guess][i]:DEFF[guess][i]);ys.push(state2.arr[i]);ids.push(i)}return{xs,ys,ids}}
+
+function renderMap(){
+  const c=$('#map'),ctx=setupCanvas(c),W=c._w,H=c._h,tk=tokens();
+  ctx.clearRect(0,0,W,H);
+  const px=lon=>(lon+180)/360*W,py=lat=>(90-lat)/180*H;
+  ctx.strokeStyle=tk.grid;ctx.lineWidth=1;ctx.beginPath();
+  for(let lon=-180;lon<=180;lon+=60){ctx.moveTo(px(lon),0);ctx.lineTo(px(lon),H)}
+  for(let lat=-60;lat<=60;lat+=30){ctx.moveTo(0,py(lat));ctx.lineTo(W,py(lat))}ctx.stroke();
+  const fmax=EDGES[0][2],fmin=EDGES[EDGES.length-1][2];
+  for(const [i,j,f] of EDGES){const a=CITIES[i],b=CITIES[j];const t=(Math.log(f)-Math.log(fmin))/(Math.log(fmax)-Math.log(fmin));ctx.strokeStyle=tk.ink2;ctx.globalAlpha=.08+.35*t;ctx.lineWidth=.5+2.2*t;
+    // wrap across the dateline when shorter
+    let x1=px(a.lon),x2=px(b.lon);if(Math.abs(x1-x2)>W/2){if(x1<x2)x1+=W;else x2+=W;ctx.beginPath();ctx.moveTo(x1,py(a.lat));ctx.lineTo(x2,py(b.lat));ctx.moveTo(x1-W,py(a.lat));ctx.lineTo(x2-W,py(b.lat));ctx.stroke()}else{ctx.beginPath();ctx.moveTo(x1,py(a.lat));ctx.lineTo(x2,py(b.lat));ctx.stroke()}}
+  ctx.globalAlpha=1;
+  const arrs=state2.arr.filter(a=>a!==null),amax=Math.max(...arrs),amin=Math.min(...arrs);
+  const rad=c=>2.2+Math.sqrt(c.pop/1e6)*.65;
+  CITIES.forEach((c,i)=>{const a=state2.arr[i];const t=a===null?1:(a-amin)/(amax-amin||1);ctx.beginPath();ctx.arc(px(c.lon),py(c.lat),rad(c),0,Math.PI*2);ctx.fillStyle=a===null?tk.node:mix(tk.seq7,tk.seq1,t);ctx.fill();ctx.lineWidth=1;ctx.strokeStyle=tk.surface;ctx.stroke()});
+  ctx.font='600 10px '+cssVar('--font-body');ctx.fillStyle=tk.ink2;ctx.textBaseline='middle';
+  CITIES.forEach((c,i)=>{if(c.hub>=.85||i===state2.guess||(state2.revealed&&i===state2.trueOrigin)){ctx.fillText(c.name,px(c.lon)+rad(c)+3,py(c.lat))}});
+  const ring=(i,col,r)=>{const c=CITIES[i];ctx.beginPath();ctx.arc(px(c.lon),py(c.lat),rad(c)+r,0,Math.PI*2);ctx.strokeStyle=col;ctx.lineWidth=2.2;ctx.stroke()};
+  if(state2.revealed)ring(state2.trueOrigin,tk.inf,6);
+  ring(state2.guess,tk.acq,3);
+  c._hit=CITIES.map((cc,i)=>({x:px(cc.lon),y:py(cc.lat),r:rad(cc),i}));
+}
+function nearestCity(e){const c=$('#map');const r=c.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*c._w,y=(e.clientY-r.top)/r.height*c._h;let best=null,bd=12;for(const h of c._hit){const d=Math.hypot(h.x-x,h.y-y);if(d<bd){bd=d;best=h.i}}return best}
+$('#map').addEventListener('mousemove',e=>{const i=nearestCity(e);$('#map').style.cursor=i===null?'default':'pointer';if(i===null){hideTip();return}const c=CITIES[i],a=state2.arr[i];showTip(`<div class="t">${c.name}</div><div>도착 <span class="m">${a===null?'미도달':a.toFixed(0)+'일'}</span></div><div>가설 발원지에서 <span class="m">${GEO[state2.guess][i].toFixed(0)} km</span> · D<sub>eff</sub> <span class="m">${DEFF[state2.guess][i].toFixed(1)}</span></div>`,e.clientX,e.clientY)});
+$('#map').addEventListener('mouseleave',hideTip);
+$('#map').addEventListener('click',e=>{const i=nearestCity(e);if(i!==null){state2.guess=i;$('#origin').value=i;renderAll2()}});
+
+function renderScatter(){
+  const svg=$('#scatter');const W=560,H=330,L=46,Rr=18,Tt=16,B=44,pw=W-L-Rr,ph=H-Tt-B,tk=tokens();
+  const geo=state2.xmode==='geo';const {xs,ys,ids}=pointsFor(state2.guess,state2.xmode);
+  const xmax=geo?20000:Math.ceil(Math.max(...xs)/2)*2+2,ymax=Math.ceil(Math.max(...ys)/20)*20;
+  const X=x=>L+x/xmax*pw,Y=y=>Tt+(1-y/ymax)*ph;
+  const f=fit(xs,ys);
+  let s='';
+  for(let y=0;y<=ymax;y+=ymax/4){s+=`<line class="grid" x1="${L}" x2="${L+pw}" y1="${Y(y)}" y2="${Y(y)}"/><text class="mono" x="${L-8}" y="${Y(y)+4}" text-anchor="end">${y}</text>`}
+  const xstep=geo?5000:(xmax>16?4:2);
+  for(let x=0;x<=xmax;x+=xstep){s+=`<text class="mono" x="${X(x)}" y="${H-B+18}" text-anchor="middle">${geo?fmtInt(x):x}</text>`}
+  s+=`<line class="axis" x1="${L}" x2="${L+pw}" y1="${Y(0)}" y2="${Y(0)}"/><line class="axis" x1="${L}" x2="${L}" y1="${Tt}" y2="${Y(0)}"/>`;
+  s+=`<text class="lab" style="font-weight:500" x="${L+pw/2}" y="${H-6}" text-anchor="middle">${geo?'가설 발원지에서의 지리적 거리 (km)':'가설 발원지에서의 유효 거리 D_eff'}</text>`;
+  s+=`<text class="lab" style="font-weight:500" x="${L-8}" y="${Tt-4}" text-anchor="end">도착 (일)</text>`;
+  // fitted line, clipped to plot
+  const x0=0,x1=xmax,y0=f.a+f.b*x0,y1=f.a+f.b*x1;
+  s+=`<line x1="${X(x0)}" y1="${Y(Math.max(0,Math.min(ymax,y0)))}" x2="${X(x1)}" y2="${Y(Math.max(0,Math.min(ymax,y1)))}" stroke="${tk.ink2}" stroke-width="1.2" stroke-dasharray="5 4"/>`;
+  ids.forEach((i,k)=>{const isG=i===state2.guess,isT=state2.revealed&&i===state2.trueOrigin;s+=`<circle class="pt" data-i="${i}" cx="${X(xs[k])}" cy="${Y(ys[k])}" r="${isG||isT?6:4.5}" fill="${isT?tk.inf:isG?tk.acq:tk.random}" stroke="${tk.surface}" stroke-width="2"/>`});
+  // R² badge
+  s+=`<text class="mono lab" x="${L+pw-4}" y="${Tt+16}" text-anchor="end" style="font-size:13px;fill:${tk.ink}">R² = ${f.r2.toFixed(2)}</text>`;
+  svg.innerHTML=s;
+  svg.querySelectorAll('.pt').forEach(p=>{p.addEventListener('mousemove',e=>{const i=+p.dataset.i;showTip(`<div class="t">${CITIES[i].name}${i===state2.guess?' (가설 발원지)':''}${state2.revealed&&i===state2.trueOrigin?' — 진짜 발원지':''}</div><div>도착 <span class="m">${state2.arr[i].toFixed(0)}일</span> · ${geo?'거리 <span class="m">'+fmtInt(Math.round(GEO[state2.guess][i]))+' km</span>':'D<sub>eff</sub> <span class="m">'+DEFF[state2.guess][i].toFixed(2)+'</span>'}</div>`,e.clientX,e.clientY)});p.addEventListener('mouseleave',hideTip)});
+  $('#st-r2').textContent=f.r2.toFixed(2);
+  $('#st-r2sub').textContent=geo?'x = 지리적 거리':'x = 유효 거리';
+  $('#sc-title').textContent=geo?'도착 시점 vs 지리적 거리':'도착 시점 vs 유효 거리';
+  $('#sc-cap').textContent=geo?'발원지에서의 거리(km)로 찍으면 예측 불가능해 보입니다.':(state2.guess===state2.trueOrigin?'맞는 발원지: 점들이 직선 위로 내려앉습니다. 기울기가 곧 확산 속도입니다.':'틀린 발원지: 유효 거리로 바꿔도 점 구름입니다. 다른 도시를 골라 보세요.');
+}
+function renderRank(){
+  const box=$('#rank');if(!state2.revealed){box.classList.add('hidden');return}
+  const rows=[];for(let g=0;g<NC;g++){const {xs,ys}=pointsFor(g,'eff');const f=fit(xs,ys);rows.push({g,r2:f.r2,b:f.b})}
+  rows.sort((a,b)=>b.r2-a.r2);
+  $('#rankbody').innerHTML=rows.slice(0,6).map(r=>`<tr class="${r.g===state2.trueOrigin?'true':''} ${r.g===state2.guess?'guess':''}"><td>${CITIES[r.g].name}</td><td class="m">${r.r2.toFixed(3)}</td><td class="m">${r.b.toFixed(2)}</td></tr>`).join('');
+  box.classList.remove('hidden');
+}
+function renderAll2(){
+  renderMap();renderScatter();renderRank();
+  $('#st-guess').textContent=CITIES[state2.guess].name;
+  $('#st-guesssub').textContent=state2.revealed?(state2.guess===state2.trueOrigin?'정답입니다':'정답이 아닙니다'):'R²가 1에 가까우면 발원지';
+  $('#st-true').textContent=state2.revealed?CITIES[state2.trueOrigin].name:'숨김';
+  $('#st-truesub').textContent=state2.revealed?'붉은 고리':'“정답 공개”를 누르면 표시';
+  const arrs=state2.arr.filter(a=>a!==null);const last=Math.max(...arrs);const li=state2.arr.indexOf(last);
+  $('#st-last').innerHTML=last.toFixed(0)+'<small>일</small>';$('#st-lastsub').textContent=CITIES[li].name+' · '+arrs.length+'개 도시 도달';
+}
+function newOutbreak(hidden){
+  let o;do{o=Math.floor(Math.random()*NC)}while(o===state2.trueOrigin);
+  state2.trueOrigin=o;state2.revealed=!hidden;state2.arr=simulate(o);
+  if(!hidden){state2.guess=o;$('#origin').value=o}
+  renderAll2();
+}
+const sel=$('#origin');[...CITIES.keys()].sort((a,b)=>CITIES[a].name.localeCompare(CITIES[b].name,'ko')).forEach(i=>{const o=document.createElement('option');o.value=i;o.textContent=CITIES[i].name;sel.appendChild(o)});
+sel.addEventListener('change',()=>{state2.guess=+sel.value;renderAll2()});
+$('#xaxis').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('#xaxis').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));state2.xmode=b.dataset.x;renderScatter()});
+$('#newout').addEventListener('click',()=>newOutbreak(true));
+$('#reveal').addEventListener('click',()=>{state2.revealed=true;renderAll2()});
+
+/* ---------- boot & theme changes ---------- */
+buildFlux();
+state2.arr=simulate(state2.trueOrigin);sel.value=state2.guess;
+rebuildNet();renderAll2();
+const rerender=()=>{renderAll1();renderAll2()};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',rerender);
+new MutationObserver(rerender).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+})();
+</script>
